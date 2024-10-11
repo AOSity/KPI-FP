@@ -2,7 +2,7 @@
 "Check if atom is in list"
   (cond
     ((null list) nil)
-    ((eq atom (car list)) t)
+    ((eql atom (car list)) t)
     (t (atom-in-list atom (cdr list)))
   )
 )
@@ -30,7 +30,7 @@ compare result with `expected' and print comparison status"
   (check-list-set-difference "3" '(9 1 5 3 7) '(7 5 3 1) '(9))
   (check-list-set-difference "4" '(1 2 3 4) '(5 6) '(1 2 3 4))
   (check-list-set-difference "5" '(1 2 3 4) '(1 2 3 4) nil)
-  (check-list-set-difference "6" '(nil) '(nil) nil)
+  (check-list-set-difference "6" '() '() nil)
 )
 
 (test-list-set-difference)

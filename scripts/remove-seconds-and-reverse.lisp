@@ -1,8 +1,11 @@
 (defun remove-seconds-and-reverse (list)
 "Constructs list with every other element removed and then reversed"
-  (if (null (third list))
-    (list (first list))
-    (append (remove-seconds-and-reverse (nthcdr 2 list)) (list (first list)))
+  (cond
+    ((null list) nil)
+    ((null (third list)) (list (first list)))
+    (t (append (remove-seconds-and-reverse (nthcdr 2 list)) (list (first list))))
+    ;; or destructive method
+    ;; (t (nconc (remove-seconds-and-reverse (nthcdr 2 list)) (list (first list))))
   )
 )
 
@@ -21,7 +24,7 @@ compare result with `expected' and print comparison status"
   (check-remove-seconds-and-reverse "4" '(1 2) '(1))
   (check-remove-seconds-and-reverse "4" '(1 2 3) '(3 1))
   (check-remove-seconds-and-reverse "5" '('(1 a) 2 b '(3 c) 4 d '(5 e)) '('(5 e) 4 b '(1 a)))
-  (check-remove-seconds-and-reverse "6" '(nil) '(nil))
+  (check-remove-seconds-and-reverse "6" '() '())
 )
 
 (test-remove-seconds-and-reverse)
