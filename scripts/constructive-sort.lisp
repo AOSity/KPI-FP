@@ -6,13 +6,19 @@
   )
 )
 
+(defun constructive-sort-helper (remaining sorted)
+"Inserts values from 'remaining' into 'sorted' in descending order
+ and returns reversed 'sorted' when all elements of 'remaining' used"
+  (if (null remaining)
+      (reverse sorted)
+      (constructive-sort-helper (cdr remaining) (insert (car remaining) sorted))
+  )
+)
+
 (defun constructive-sort (lst)
 "Constructs sorted list by non-descending,
  using insertion sort, linear search from the right"
-  (if (null lst)
-      '()
-      (reverse (insert (car lst) (reverse (constructive-sort (cdr lst)))))
-  )
+  (constructive-sort-helper lst '())
 )
 
 (defun check-constructive-sort (name input expected)
