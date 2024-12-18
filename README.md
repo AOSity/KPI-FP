@@ -205,9 +205,176 @@
 ```
 ### Тестові набори та утиліти
 ```lisp
-;;; Лістинг реалізації утилітних тестових функцій та тестових наборів
+(defvar *failed-tests* nil "List of failed test descriptions")
+
+(defmacro assert-equal (expected actual &optional (message ""))
+  "Assert that 'expected' and 'actual' are equal"
+ `(let ((exp ,expected) (act ,actual))
+    (unless (equal exp act)
+      (push (format nil "Assertion failed: ~a~%Expected: ~a~%Got: ~a" ,message exp act) *failed-tests*)
+    )
+  )
+)
+
+(defmacro assert-true (form &optional (message ""))
+  "Assert that 'form' value is non-nil"
+ `(let ((val ,form))
+    (unless val
+      (push (format nil "Assertion failed: ~a~%Expected non-nil, got NIL" ,message) *failed-tests*)
+    )
+  )
+)
+
+(defun run-test (test-func)
+  "Run test function which uses assert"
+  (let ((*failed-tests* nil))
+    (funcall test-func)
+    (if *failed-tests*
+      (progn
+          (format t "~a FAILED ~%" test-func)
+          (dolist (fail *failed-tests*) (format t "~a~%" fail))
+          nil
+      )
+      (progn (format t "~a passed ~%" test-func) t)
+    )
+  )
+)
+
+(defun test-get-struct-slots ()
+  "Test for 'get-struct-slots'"
+  (assert-true (every #'(lambda (s) (member s project-slots)) '(id name domain release-year model-id))
+               "Project slots do not contain expected fields"
+  )
+  (assert-true (every #'(lambda (s) (member s model-slots)) '(id name type version developer))
+               "Model slots do not contain expected fields"
+  )
+)
+
+(defun test-normalize-header ()
+  "Test for 'normalize-header'"
+  (assert-equal :NAME (normalize-header "Name") "Failed to normalize 'Name'")
+  (assert-equal :RELEASE-YEAR (normalize-header " release year ") "Failed to normalize ' release year '")
+  (assert-equal :MODEL-ID (normalize-header "Model ID") "Failed to normalize 'Model ID'")
+  (assert-equal :DEVELOPER (normalize-header "developer") "Failed to normalize 'developer'")
+)
+
+(defun test-split-string ()
+  "Test for 'split-string'"
+  (assert-equal '("a" "b" "c") (split-string "a,b,c" #\,) "Splitting 'a,b,c' failed")
+  (assert-equal '("one" "two" "three") (split-string "one|two|three" #\|) "Splitting 'one two three' failed")
+  (assert-equal '("no-sep") (split-string "no-sep" #\,) "Should return unchanged string")
+  (assert-equal '("spaces" "in" "string") (split-string "spaces in string" #\Space)
+                "Splitting 'spaces in string' by space failed"
+  )
+)
+
+(defun test-struct-to-hash-table ()
+  "Test for 'struct-to-hash-table'"
+  (let ((test-project (make-project :id 7 :name "TestProj" :domain "Testing" :release-year 2024 :model-id 5))
+        (hash (struct-to-hash-table 
+                (make-project :id 7 :name "TestProj" :domain "Testing" :release-year 2024 :model-id 5) project-slots
+              )
+      ))
+    (assert-equal 7 (gethash "ID" hash) "ID field mismatch")
+    (assert-equal "TestProj" (gethash "NAME" hash) "NAME field mismatch")
+    (assert-equal "Testing" (gethash "DOMAIN" hash) "DOMAIN field mismatch")
+    (assert-equal 2024 (gethash "RELEASE-YEAR" hash) "RELEASE-YEAR field mismatch")
+    (assert-equal 5 (gethash "MODEL-ID" hash) "MODEL-ID field mismatch")
+  )
+)
+
+(defun test-read-write-struct-csv ()
+  "Test for writing and reading a struct to/from .csv"
+  (let  ((test-file "test.csv")
+         (test-data (make-model :id 88 :name "Model" :type "Neural Network" :version "1.4" :developer "TestCorp"))
+        )
+    (write-struct-to-csv test-file test-data model-slots)
+    (let ((models (read-struct-from-csv test-file #'make-model)))
+      (assert-true (and models (car models)) "No models read back from .csv")
+      (let ((m (car models)))
+        (assert-equal "88" (model-id m) "ID mismatch")
+        (assert-equal "Model" (model-name m) "Name mismatch")
+        (assert-equal "Neural Network" (model-type m) "Type mismatch")
+        (assert-equal "1.4" (model-version m) "Version mismatch")
+        (assert-equal "TestCorp" (model-developer m) "Developer mismatch")
+      )
+    )
+  )
+)
+
+(defun test-select ()
+  "Test for the 'select'"
+  (let ((all-projects (funcall (select "projects.csv" :project)))
+        (healthcare-projects (funcall (select "projects.csv" :project :domain "Healthcare")))
+        (all-models (funcall (select "models.csv" :model)))
+        (meditech-models (funcall (select "models.csv" :model :developer "MediTech")))
+       )
+       (assert-true (plusp (length all-projects)) "No projects read from file")
+       (assert-true (every (lambda (p) (string= (project-domain p) "Healthcare")) healthcare-projects)
+                    "Filter by domain failed."
+       )
+       (assert-true (plusp (length all-models)) "No models read from file")
+       (assert-true (every (lambda (m) (string= (model-developer m) "MediTech")) meditech-models) 
+                    "Filter by developer failed."
+       )
+  )
+)
+
+(defun test-print-table ()
+  "Test for 'print-table'"
+  (let  ((test-projects (list (make-project :id 1 :name "Proj1" :domain "Dom1" :release-year 2020 :model-id 3)
+                              (make-project :id 2 :name "Proj2" :domain "Dom2" :release-year 2021 :model-id 2)
+                              (make-project :id 3 :name "Proj3" :domain "Dom3" :release-year 2022 :model-id 1)
+                        )
+        ))
+        (print-table test-projects project-slots)
+        (assert-true t "print-table executed without errors")
+  )
+)
+
+(defun setup-test-environment ()
+  "Setup test.csv"
+  (with-open-file 
+    (stream "test.csv" :direction :output :if-exists :supersede :if-does-not-exist :create)
+    (format stream "id,name,type,version,developer~%")
+  )
+)
+
+(defun run-all-tests ()
+  "Run all tests and report results"
+  (setup-test-environment)
+  (let  ((results (list (run-test #'test-print-table)
+                        (run-test #'test-get-struct-slots)
+                        (run-test #'test-normalize-header)
+                        (run-test #'test-split-string)
+                        (run-test #'test-struct-to-hash-table)
+                        (run-test #'test-read-write-struct-csv)
+                        (run-test #'test-select)
+                  )
+        ))
+        (if (every #'identity results)
+          (format t "~%All tests passed successfully~%")
+          (format t "~%SOME TESTS FAILED~%")
+        )
+  )
+)
+
+(run-all-tests)
 ```
 ### Тестування
-```lisp
-;;; Виклик і результат виконання тестів
+```bash
+$ sbcl --script db.lisp 
+ID | NAME | DOMAIN | RELEASE-YEAR | MODEL-ID
+1 | "Proj1" | "Dom1" | 2020 | 3
+2 | "Proj2" | "Dom2" | 2021 | 2
+3 | "Proj3" | "Dom3" | 2022 | 1
+#<FUNCTION TEST-PRINT-TABLE> passed 
+#<FUNCTION TEST-GET-STRUCT-SLOTS> passed 
+#<FUNCTION TEST-NORMALIZE-HEADER> passed 
+#<FUNCTION TEST-SPLIT-STRING> passed 
+#<FUNCTION TEST-STRUCT-TO-HASH-TABLE> passed 
+#<FUNCTION TEST-READ-WRITE-STRUCT-CSV> passed 
+#<FUNCTION TEST-SELECT> passed 
+
+All tests passed successfully
 ```
