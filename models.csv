@@ -1,0 +1,7 @@
+id,name,type,version,developer
+1,MedNet,Neural Network,1.0,MediTech
+2,FinPredict,Decision Tree,2.1,DataCorp
+3,VisionX,Transformer,1.2,ImagoTech
+4,ChatMind,Transformer,2.0,CloudAI
+5,BioGen,Neural Network,1.5,BioTech
+6,CreditAnalysis,Decision Tree,3.0,DataCorp
